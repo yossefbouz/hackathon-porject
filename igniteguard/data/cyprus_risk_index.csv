@@ -1,0 +1,13 @@
+id,name,latitude,longitude,risk_index,wind_speed_kmh,tree_cover_pct,vegetation_type
+CY-001,Troodos National Forest Park,34.9167,32.8333,0.82,38.4,76,Conifer forest
+CY-002,Paphos Forest West,34.9500,32.5833,0.74,34.6,68,Conifer forest
+CY-003,Akamas Peninsula,35.0333,32.3333,0.58,29.1,42,Shrubland
+CY-004,Limassol Hills,34.7667,33.1333,0.67,31.4,55,Mixed woodland
+CY-005,Larnaca Salt Lake Fringe,34.8833,33.6167,0.31,21.6,28,Grassland
+CY-006,Machairas Forest,34.9333,33.0833,0.79,36.8,71,Conifer forest
+CY-007,Kyrenia Range,35.3333,33.3167,0.54,27.9,47,Maquis shrubland
+CY-008,Famagusta Agricultural Belt,35.1167,33.9500,0.22,18.4,19,Cropland
+CY-009,Nicosia Urban Fringe,35.1500,33.3500,0.38,23.5,24,Urban vegetation mosaic
+CY-010,Karpasia Peninsula,35.6000,34.1000,0.49,26.2,33,Sparse shrubland
+CY-011,Paphos Coastal Plain,34.7500,32.4333,0.27,20.3,17,Grassland
+CY-012,Morfou Citrus Groves,35.2000,32.9500,0.46,24.8,39,Orchards

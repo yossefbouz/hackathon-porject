@@ -228,6 +228,27 @@ def risk_color(band: str) -> list[int]:
     }
     return mapping.get(band, [150, 150, 150])
 
+def sanitise_for_pydeck(df: pd.DataFrame) -> pd.DataFrame:
+    """Ensure dataframe contains JSON-serialisable primitives for pydeck."""
+    safe_df = df.copy()
+    for column in safe_df.columns:
+        series = safe_df[column]
+        if np.issubdtype(series.dtype, np.datetime64):
+            safe_df[column] = series.dt.strftime("%Y-%m-%d")
+            continue
+        if series.dtype == "object":
+            safe_df[column] = series.apply(
+                lambda value: value.isoformat()
+                if isinstance(value, (datetime, date))
+                else (float(value) if isinstance(value, (np.floating, np.integer)) else value)
+            )
+        elif np.issubdtype(series.dtype, np.floating):
+            safe_df[column] = series.astype(float)
+        elif np.issubdtype(series.dtype, np.integer):
+            safe_df[column] = series.astype(int)
+    return safe_df
+
+
 def make_heatmap(df: pd.DataFrame, mode: str = "Heatmap") -> Optional[pdk.Deck]:
     """Create a pydeck map visualising dryness index and risk band."""
     if df.empty:
@@ -238,7 +259,10 @@ def make_heatmap(df: pd.DataFrame, mode: str = "Heatmap") -> Optional[pdk.Deck]:
         map_df = map_df.assign(display_label=map_df["display_date"].astype(str))
     else:
         map_df = map_df.assign(display_label=map_df.index.astype(str))
-    scatter_data = map_df.assign(color=risk_series.apply(risk_color), risk_band=risk_series)
+    map_df = sanitise_for_pydeck(map_df)
+    scatter_data = sanitise_for_pydeck(
+        map_df.assign(color=risk_series.apply(risk_color), risk_band=risk_series)
+    )
     if "lon" not in df.columns or "lat" not in df.columns:
         return None
     layers: list[pdk.Layer] = []

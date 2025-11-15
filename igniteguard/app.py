@@ -86,6 +86,7 @@ class Filters:
     selected_bands: Iterable[str]
     safe_threshold: float
     danger_threshold: float
+    map_mode: str
 
 def sidebar_controls(df: pd.DataFrame) -> Filters:
     """Render sidebar controls and return the applied filters."""
@@ -130,11 +131,18 @@ def sidebar_controls(df: pd.DataFrame) -> Filters:
         options=available_bands,
         default=available_bands,
     )
+    map_mode = st.sidebar.radio(
+        "Map visualisation",
+        options=("Heatmap", "Hexagon"),
+        format_func=lambda m: "Heatmap + points" if m == "Heatmap" else "Hexagon columns",
+        index=0,
+    )
     return Filters(
         selected_dates=selected_dates,
         selected_bands=selected_bands,
         safe_threshold=safe_thr,
         danger_threshold=danger_thr,
+        map_mode=map_mode,
     )
 
 def latest_record(df: pd.DataFrame) -> pd.Series:
@@ -220,32 +228,66 @@ def risk_color(band: str) -> list[int]:
     }
     return mapping.get(band, [150, 150, 150])
 
-def make_heatmap(df: pd.DataFrame) -> Optional[pdk.Deck]:
+def make_heatmap(df: pd.DataFrame, mode: str = "Heatmap") -> Optional[pdk.Deck]:
     """Create a pydeck map visualising dryness index and risk band."""
     if df.empty:
         return None
     risk_series = df.get("risk_band", pd.Series("Safe", index=df.index))
-    scatter_data = df.assign(color=risk_series.apply(risk_color), risk_band=risk_series)
+    map_df = df.copy()
+    if "display_date" in map_df.columns:
+        map_df = map_df.assign(display_label=map_df["display_date"].astype(str))
+    else:
+        map_df = map_df.assign(display_label=map_df.index.astype(str))
+    scatter_data = map_df.assign(color=risk_series.apply(risk_color), risk_band=risk_series)
     if "lon" not in df.columns or "lat" not in df.columns:
         return None
-    layers = [
-        pdk.Layer(
-            "HeatmapLayer",
-            data=df,
-            get_position="[lon, lat]",
-            get_weight="dryness_index",
-            radiusPixels=60,
-        ),
-        pdk.Layer(
-            "ScatterplotLayer",
-            data=scatter_data,
-            get_position="[lon, lat]",
-            get_color="color",
-            get_radius=120,
-            pickable=True,
-            radius_scale=1,
-        ),
-    ]
+    layers: list[pdk.Layer] = []
+    if mode == "Hexagon":
+        layers.append(
+            pdk.Layer(
+                "HexagonLayer",
+                data=map_df,
+                get_position="[lon, lat]",
+                autoHighlight=True,
+                elevationScale=10,
+                pickable=True,
+                radius=200,
+                elevation_range=[0, 1000],
+                get_elevation="dryness_index",
+            )
+        )
+        layers.append(
+            pdk.Layer(
+                "ScatterplotLayer",
+                data=scatter_data,
+                get_position="[lon, lat]",
+                get_color="color",
+                get_radius=100,
+                pickable=True,
+                radius_scale=1,
+            )
+        )
+    else:
+        layers.extend(
+            [
+                pdk.Layer(
+                    "HeatmapLayer",
+                    data=map_df,
+                    get_position="[lon, lat]",
+                    get_weight="dryness_index",
+                    radiusPixels=60,
+                ),
+                pdk.Layer(
+                    "ScatterplotLayer",
+                    data=scatter_data,
+                    get_position="[lon, lat]",
+                    get_color="color",
+                    get_radius=120,
+                    pickable=True,
+                    radius_scale=1,
+                ),
+            ]
+        )
     lon_series = df.get("lon")
     lat_series = df.get("lat")
     longitude = float(lon_series.dropna().iloc[0]) if lon_series is not None and not lon_series.dropna().empty else DEFAULT_LON
@@ -257,7 +299,7 @@ def make_heatmap(df: pd.DataFrame) -> Optional[pdk.Deck]:
         pitch=40,
     )
     tooltip = {
-        "html": "<b>{display_date}</b><br/>Dryness: {dryness_index:.1f}<br/>Risk: {risk_band}",
+        "html": "<b>{display_label}</b><br/>Dryness: {dryness_index:.1f}<br/>Risk: {risk_band}",
         "style": {"backgroundColor": "#1f2630", "color": "white"},
     }
     return pdk.Deck(layers=layers, initial_view_state=view_state, tooltip=tooltip)
@@ -410,7 +452,7 @@ def main() -> None:
     make_time_series(time_series_df, date_col or "Index")
 
     st.subheader("Dryness Heat Map")
-    deck = make_heatmap(filtered_df)
+    deck = make_heatmap(filtered_df, mode=filters.map_mode)
     if deck is None:
         st.info("No data available for the selected filters to display on the map.")
     else:

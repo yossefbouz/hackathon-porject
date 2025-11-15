@@ -2,6 +2,8 @@ streamlit
 requests
 pandas
 numpy
+pydeck
+altair
 pydantic
 fastapi
 uvicorn[standard]
